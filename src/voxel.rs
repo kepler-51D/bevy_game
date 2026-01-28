@@ -1,4 +1,4 @@
-use bevy::{ecs::{component::Component, system::{Commands, Query}}, math::{IVec3, UVec3, Vec3}, mesh::Mesh, platform::collections::HashMap};
+use bevy::{asset::RenderAssetUsages, ecs::{component::Component, system::{Commands, Query}}, math::{IVec3, UVec3, Vec3}, mesh::{Indices, Mesh, PrimitiveTopology}, platform::collections::HashMap};
 
 #[repr(u16)]
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -73,7 +73,16 @@ pub struct ChunkManager {
     pub map: HashMap<IVec3,Chunk>,
 }
 impl ChunkManager {
-    pub fn gen_mesh(&mut self, pos: IVec3) {
+    pub fn add_quad(offset: Vec3, quad: [Vec3; 4], vertices: &mut Vec<Vec3>, indices: &mut Vec<u32>) {
+        let mut working_quad = quad;
+        for i in 0..4 {
+            working_quad[i] += offset;
+        }
+        let s = vertices.len() as u32;
+        indices.extend_from_slice(&[s+0,s+3,s+1,s+0,s+2,s+3]);
+        vertices.extend_from_slice(&working_quad);
+    }
+    pub fn gen_mesh(&mut self, pos: IVec3) -> Mesh {
         let chunk = match self.map.get_mut(&pos) {
             Some(val) => {val},
             None => {todo!()}
@@ -99,78 +108,65 @@ impl ChunkManager {
                             y:y as i32,
                             z:z as i32
                         }) == BlockID::Air {
-                            let new_quad: &mut [Vec3] = &mut Chunk::LEFTQUAD.clone();
-                            for i in 0..4 {
-                                new_quad[i] += offset;
-                            }
-                            indices.extend_from_slice(&[0,3,1,0,2,3]);
-                            vertices.extend_from_slice(new_quad);
+                            ChunkManager::add_quad(
+                                offset, Chunk::LEFTQUAD, &mut vertices, &mut indices
+                            );
                         }
                         if self.get_block(IVec3 {
                             x:x as i32 +1,
                             y:y as i32,
                             z:z as i32
                         }) == BlockID::Air {
-                            let new_quad: &mut [Vec3] = &mut Chunk::RIGHTQUAD.clone();
-                            for i in 0..4 {
-                                new_quad[i] += offset;
-                            }
-                            indices.extend_from_slice(&[0,3,1,0,2,3]);
-                            vertices.extend_from_slice(new_quad);
+                            ChunkManager::add_quad(
+                                offset, Chunk::RIGHTQUAD, &mut vertices, &mut indices
+                            );
                         }
                         if self.get_block(IVec3 {
                             x:x as i32,
                             y:y as i32 -1,
                             z:z as i32
                         }) == BlockID::Air {
-                            let new_quad: &mut [Vec3] = &mut Chunk::BOTTOMQUAD.clone();
-                            for i in 0..4 {
-                                new_quad[i] += offset;
-                            }
-                            indices.extend_from_slice(&[0,3,1,0,2,3]);
-                            vertices.extend_from_slice(new_quad);
+                            ChunkManager::add_quad(
+                                offset, Chunk::BOTTOMQUAD, &mut vertices, &mut indices
+                            );
                         }
                         if self.get_block(IVec3 {
                             x:x as i32,
                             y:y as i32 +1,
                             z:z as i32
                         }) == BlockID::Air {
-                            let new_quad: &mut [Vec3] = &mut Chunk::TOPQUAD.clone();
-                            for i in 0..4 {
-                                new_quad[i] += offset;
-                            }
-                            indices.extend_from_slice(&[0,3,1,0,2,3]);
-                            vertices.extend_from_slice(new_quad);
+                            ChunkManager::add_quad(
+                                offset, Chunk::TOPQUAD, &mut vertices, &mut indices
+                            );
                         }
                         if self.get_block(IVec3 {
                             x:x as i32,
                             y:y as i32,
                             z:z as i32 -1
                         }) == BlockID::Air {
-                            let new_quad: &mut [Vec3] = &mut Chunk::BACKQUAD.clone();
-                            for i in 0..4 {
-                                new_quad[i] += offset;
-                            }
-                            indices.extend_from_slice(&[0,3,1,0,2,3]);
-                            vertices.extend_from_slice(new_quad);
+                            ChunkManager::add_quad(
+                                offset, Chunk::BACKQUAD, &mut vertices, &mut indices
+                            );
                         }
                         if self.get_block(IVec3 {
                             x:x as i32,
                             y:y as i32,
                             z:z as i32 +1
                         }) == BlockID::Air {
-                            let new_quad: &mut [Vec3] = &mut Chunk::FRONTQUAD.clone();
-                            for i in 0..4 {
-                                new_quad[i] += offset;
-                            }
-                            indices.extend_from_slice(&[0,3,1,0,2,3]);
-                            vertices.extend_from_slice(new_quad);
+                            ChunkManager::add_quad(
+                                offset, Chunk::FRONTQUAD, &mut vertices, &mut indices
+                            );
                         }
                     }
                 }
             }
         }
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+        mesh.insert_indices(Indices::U32(indices));
+        mesh
     }
+
     pub fn get_block(&self, pos: IVec3) -> BlockID {
         let chunk_index: IVec3 = IVec3 {
             x: pos.x / Chunk::CHUNKSIZE as i32,
@@ -209,6 +205,7 @@ pub fn process_chunks(mut commands: Commands, query: Query<&mut Chunk>) {
     for mut chunk in query {
         match chunk.state {
             ChunkState::MeshDirty => {
+                todo!();
                 chunk.state = ChunkState::Renderable;
             }
             ChunkState::MeshRendering => {
@@ -219,7 +216,7 @@ pub fn process_chunks(mut commands: Commands, query: Query<&mut Chunk>) {
                 chunk.state = ChunkState::MeshDirty;
             }
             ChunkState::Renderable => {
-                todo!()
+                todo!() // will deal with after rendering works
             }
         }
     }
