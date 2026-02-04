@@ -1,65 +1,64 @@
 mod voxel;
+mod player;
+use crate::player::camera::{grab_mouse, spawn_player, update_player};
+use crate::voxel::chunk_manager::{ChunkManager, manage_chunks, process_chunks};
+use crate::voxel::voxel::{BlockID, Chunk};
 
-use bevy::ecs::component::Component;
+use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
-pub struct HelloPlugin;
-
-impl Plugin for HelloPlugin {
-    fn build(&self, app: &mut App) {
-        
-    }
-}
-
-#[derive(Component)]
-struct Position {
-    x: f32,
-    y: f32,
-}
-
-fn print_position_system(query: Query<&Position>) {
-    for position in &query {
-        println!("position: {} {}", position.x, position.y);
-    }
-}
-struct Entity(u64);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, voxel::process_chunks)
+        .add_systems(Update,grab_mouse)
+        
+        .add_systems(Startup, spawn_player)
+        .add_systems(Update, update_player)
+        
+        .insert_resource(ChunkManager { map: HashMap::default(), render_distance_hor: 2, render_distance_ver: 1})
+        .add_systems(Update, process_chunks)
+        .add_systems(Update,manage_chunks)
         .run();
 }
 
-/// set up a simple 3D scene
+
+
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut chunk_manager: ResMut<ChunkManager>,
 ) {
-    // circular base
-    commands.spawn((
-        Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(materials.add(Color::WHITE)),
-        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-    ));
-    // cube
-    commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
-    ));
-    // light
-    commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
-        Transform::from_xyz(4.0, 8.0, 4.0),
-    ));
-    // camera
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
+
+    // let material_handle = materials.add(StandardMaterial {
+    //     base_color: Color::srgb(1.0, 1.0, 1.0),
+    //     ..default()
+    // });
+
+    let mut data = [[[BlockID::Air; 32]; 32]; 32];
+    let mut toggle: bool = true;
+    for x in 0..16 {
+        for y in 0..16 {
+            for z in 0..16 {
+                data[x][y][z] = if toggle {
+                    BlockID::Stone
+                } else {
+                    BlockID::Air
+                };
+                toggle = !toggle;
+            }
+        }
+    }
+    chunk_manager.add_chunk(&mut commands, Chunk {data, pos: IVec3::ZERO}, &mut materials);
+    // let chunk_pos = IVec3::ZERO;
+    // let chunk_entity = commands.spawn((
+    //     Chunk {
+    //         data,
+    //         pos: chunk_pos,
+    //     },
+    //     NeedsMeshUpdate,
+    //     MeshMaterial3d(material_handle),
+    // )).id();
+
+    // chunk_manager.map.insert(chunk_pos, chunk_entity);
 }
