@@ -2,6 +2,7 @@ use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*, window::{CursorGrab
 
 #[derive(Component)]
 pub struct Player;
+
 #[derive(Component)]
 pub struct CameraRotation {
     pub yaw: f32,
@@ -13,7 +14,7 @@ pub fn spawn_player(mut commands: Commands) {
         Camera3d::default(),
         SpotLight {
             intensity: 100_000.0,
-            range: 100000.0,
+            range: 100_000.0,
             ..default()
         },
         CameraRotation {yaw: 0.0, pitch: 0.0},

@@ -38,17 +38,6 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut chunk_manager: ResMut<ChunkManager>,
 ) {
-//     let thread_pool = AsyncComputeTaskPool::get();
-    
-    // let task = thread_pool.spawn(async move {
-    //     let mesh = ChunkManager::gen_mesh(
-    //         todo!(),
-    //         todo!(),
-    //         todo!(),
-    //     );
-    // });
-
-    // commands.spawn(GenMesh(task));
     let mut data = [[[BlockID::Air; 32]; 32]; 32];
     let mut toggle: bool = true;
     for x in data.iter_mut() {
