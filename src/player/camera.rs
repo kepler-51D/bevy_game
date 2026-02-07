@@ -32,7 +32,7 @@ pub fn update_player(
         camera_rotation.pitch += mouse_input.delta.y;
         camera_rotation.yaw += mouse_input.delta.x;
 
-        let const_transform = transform.clone();
+        let const_transform = *transform;
         if keyboard_input.pressed(KeyCode::KeyW) {
             transform.translation -= const_transform.local_z().as_vec3();
             // transform.translation -= -Vec3::Z;

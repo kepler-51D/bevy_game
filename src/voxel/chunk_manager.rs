@@ -1,26 +1,41 @@
-use bevy::{asset::RenderAssetUsages, mesh::{Indices, PrimitiveTopology}, platform::collections::HashMap, prelude::*};
-use crate::{player::camera::{Player}, voxel::voxel::{BlockID, Chunk, NeedsMeshUpdate, Renderable}};
+use std::sync::Arc;
+
+use bevy::{
+    asset::RenderAssetUsages,
+    mesh::{Indices, PrimitiveTopology},
+    platform::collections::HashMap,
+    prelude::*,
+    tasks::{AsyncComputeTaskPool, Task, futures_lite::future}
+};
+use crate::{player::camera::Player, voxel::voxel_types::{BlockData, BlockID, Chunk, NeedsMeshUpdate, Renderable}};
+
+
+#[derive(Component)]
+pub struct GenMesh(Task<(Entity, Mesh)>);
 
 #[derive(Resource,Clone)]
 pub struct ChunkManager {
-    pub map: HashMap<IVec3,Entity>,
+    // pub map: HashMap<IVec3,Entity>,
+    pub map: HashMap<IVec3,BlockData>,
     pub render_distance_hor: i32,
     pub render_distance_ver: i32,
 }
 impl ChunkManager {
     pub fn add_quad(offset: Vec3, quad: [Vec3; 4], vertices: &mut Vec<Vec3>, indices: &mut Vec<u32>) {
         let mut working_quad = quad;
-        for i in 0..4 {
-            working_quad[i] += offset;
+        // for i in 0..4 {
+        //     working_quad[i] += offset;
+        // }
+        for vert in working_quad.iter_mut() {
+            *vert += offset;
         }
         let s = vertices.len() as u32;
-        indices.extend_from_slice(&[s+0,s+3,s+1,s+0,s+2,s+3]);
+        indices.extend_from_slice(&[s,s+3,s+1,s,s+2,s+3]);
         vertices.extend_from_slice(&working_quad);
     }
     pub fn gen_mesh(
+        &self,
         chunk: &Chunk,
-        manager: &ChunkManager, 
-        chunk_query: &Query<&Chunk>
     ) -> Mesh {
         let mut vertices: Vec<Vec3> = Vec::new();
         let mut indices: Vec<u32> = Vec::new();
@@ -41,22 +56,22 @@ impl ChunkManager {
                     
                     let world_pos = world_offset + local_pos;
 
-                    if manager.get_block(world_pos + IVec3::NEG_X, chunk_query) == BlockID::Air {
+                    if self.get_block(world_pos + IVec3::NEG_X) == BlockID::Air {
                         ChunkManager::add_quad(mesh_offset, Chunk::LEFTQUAD, &mut vertices, &mut indices);
                     }
-                    if manager.get_block(world_pos + IVec3::X, chunk_query) == BlockID::Air {
+                    if self.get_block(world_pos + IVec3::X) == BlockID::Air {
                         ChunkManager::add_quad(mesh_offset, Chunk::RIGHTQUAD, &mut vertices, &mut indices);
                     }
-                    if manager.get_block(world_pos + IVec3::Y, chunk_query) == BlockID::Air {
+                    if self.get_block(world_pos + IVec3::Y) == BlockID::Air {
                         ChunkManager::add_quad(mesh_offset, Chunk::TOPQUAD, &mut vertices, &mut indices);
                     }
-                    if manager.get_block(world_pos + IVec3::NEG_Y, chunk_query) == BlockID::Air {
+                    if self.get_block(world_pos + IVec3::NEG_Y) == BlockID::Air {
                         ChunkManager::add_quad(mesh_offset, Chunk::BOTTOMQUAD, &mut vertices, &mut indices);
                     }
-                    if manager.get_block(world_pos + IVec3::Z, chunk_query) == BlockID::Air {
+                    if self.get_block(world_pos + IVec3::Z) == BlockID::Air {
                         ChunkManager::add_quad(mesh_offset, Chunk::FRONTQUAD, &mut vertices, &mut indices);
                     }
-                    if manager.get_block(world_pos + IVec3::NEG_Z, chunk_query) == BlockID::Air {
+                    if self.get_block(world_pos + IVec3::NEG_Z) == BlockID::Air {
                         ChunkManager::add_quad(mesh_offset, Chunk::BACKQUAD, &mut vertices, &mut indices);
                     }
                 }
@@ -72,7 +87,6 @@ impl ChunkManager {
     pub fn get_block(
         &self, 
         pos: IVec3,
-        chunk_query: &Query<&Chunk>
     ) -> BlockID {
         let chunk_pos = IVec3::new(
             pos.x.div_euclid(32), 
@@ -86,12 +100,11 @@ impl ChunkManager {
             pos.z.rem_euclid(32)
         );
 
-        // 3. Look up the entity in the map
-        if let Some(&entity) = self.map.get(&chunk_pos) {
-            // 4. Look up the component data for that entity
-            if let Ok(chunk) = chunk_query.get(entity) {
-                return chunk.data[local_pos.x as usize][local_pos.y as usize][local_pos.z as usize];
-            }
+        if let Some(data) = self.map.get(&chunk_pos) {
+            return data[local_pos.x as usize][local_pos.y as usize][local_pos.z as usize];
+            // if let Ok(chunk) = chunk_query.get(entity) {
+            //     return chunk.data[local_pos.x as usize][local_pos.y as usize][local_pos.z as usize];
+            // }
         }
         BlockID::Air
     }
@@ -102,55 +115,51 @@ impl ChunkManager {
         materials: &mut ResMut<Assets<StandardMaterial>>,
     ) {
         let key = chunk.pos;
+        
+        // Store the data pointer in our manager for neighbors to find
+        self.map.insert(key, Arc::clone(&chunk.data));
+
         let material_handle = materials.add(StandardMaterial {
-            base_color: Color::srgb(1.0, 1.0, 1.0),
+            base_color: Color::WHITE,
             ..default()
         });
-        let chunk_entity = commands.spawn((
-            chunk,
-            Transform {
-                translation: Vec3::new(
-                    key.x as f32 * Chunk::CHUNKSIZE as f32 / 2.0,
-                    key.y as f32 * Chunk::CHUNKSIZE as f32 / 2.0,
-                    key.z as f32 * Chunk::CHUNKSIZE as f32 / 2.0,
-                ),
-                rotation: Quat::default(),
-                scale: Vec3::new(1.0,1.0,1.0),
-            },
-            NeedsMeshUpdate,
-            MeshMaterial3d(material_handle),
-        )).id();
 
-        self.map.insert(key, chunk_entity);
+        commands.spawn((
+            chunk,
+            // Multiply by 32.0 (Chunk size) to space them out in 3D space
+            Transform::from_translation(key.as_vec3() * Chunk::CHUNKSIZE as f32 / 1.0),
+            MeshMaterial3d(material_handle),
+            NeedsMeshUpdate,
+        ));
     }
 }
 
 pub fn process_chunks(
     mut commands: Commands,
-    // mut params: ParamSet<(Query<(Entity, &mut Chunk), With<NeedsMeshUpdate>>,Query<&Chunk>)>,
-    mut meshes: ResMut<Assets<Mesh>>,
     chunk_manager: Res<ChunkManager>,
-    all_chunks: Query<&Chunk>,
-    mut dirty_chunks: Query<(Entity, &Chunk), With<NeedsMeshUpdate>>
+    dirty_chunks: Query<(Entity, &Chunk), With<NeedsMeshUpdate>>
 ) {
-    for (entity, chunk) in dirty_chunks.iter_mut() {
-        let new_mesh = ChunkManager::gen_mesh(
-            &chunk,
-            &chunk_manager,
-            // &params.p1(),
-            &all_chunks,
-        );
-        
-        let mesh_handle = meshes.add(new_mesh);
-        
-        commands.entity(entity).insert(Mesh3d(mesh_handle));
-        
-        // chunk.state = ChunkState::Renderable;
-        commands.entity(entity).remove::<NeedsMeshUpdate>();
-        // commands.entity(entity).remove::<NeedsMeshUpdate>();
-        commands.entity(entity).insert(Renderable);
-    }
+    let thread_pool = AsyncComputeTaskPool::get();
 
+    for (entity, chunk) in dirty_chunks.iter() {
+        let data = Arc::clone(&chunk.data);
+        let pos = chunk.pos;
+        let map = chunk_manager.clone();
+        let task = thread_pool.spawn(async move {
+            let new_mesh = map.gen_mesh(
+                &Chunk {
+                    data,
+                    pos,
+                },
+            );
+            
+            (entity, new_mesh)
+        });
+
+        commands.entity(entity)
+            .insert(GenMesh(task))
+            .remove::<NeedsMeshUpdate>();
+    }
 }
 
 pub fn manage_chunks(
@@ -159,7 +168,7 @@ pub fn manage_chunks(
     mut materials: ResMut<Assets<StandardMaterial>>,
     player: Query<&Transform, With<Player>>
 ) {
-    for (transform) in player {
+    for transform in player {
         let center: IVec3 = IVec3::new(
             transform.translation.x as i32 / Chunk::CHUNKSIZE as i32 *2,
             transform.translation.y as i32 / Chunk::CHUNKSIZE as i32 *2,
@@ -181,12 +190,13 @@ pub fn manage_chunks(
                     let index: IVec3 = IVec3::new(x,y,z);
                     let exists: bool = chunk_manager.map.contains_key(&index);
                     if !exists {
+                        // jobs.push(index);
                         let mut data = [[[BlockID::Air; 32]; 32]; 32];
                         let mut toggle: bool = true;
-                        for x in 0..16 {
-                            for y in 0..16 {
-                                for z in 0..16 {
-                                    data[x][y][z] = if toggle {
+                        for x in data.iter_mut() {
+                            for y in x.iter_mut() {
+                                for z in y.iter_mut() {
+                                    *z = if toggle {
                                         BlockID::Stone
                                     } else {
                                         BlockID::Air
@@ -195,12 +205,41 @@ pub fn manage_chunks(
                                 }
                             }
                         }
-                        chunk_manager.add_chunk(&mut commands, Chunk {data, pos: index}, &mut materials);
+                        // for x in 0..Chunk::CHUNKSIZE {
+                        //     for y in 0..Chunk::CHUNKSIZE {
+                        //         for z in 0..Chunk::CHUNKSIZE {
+                        //             data[x][y][z] = if toggle {
+                        //                 BlockID::Stone
+                        //             } else {
+                        //                 BlockID::Air
+                        //             };
+                        //             toggle = !toggle;
+                        //         }
+                        //     }
+                        // }
+                        chunk_manager.add_chunk(&mut commands, Chunk {data:Arc::new(data), pos: index}, &mut materials);
                     }
                 }
             }
         }
     }
+}
 
-    // for x in 
+pub fn poll_mesh_tasks(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut tasks: Query<(Entity, &mut GenMesh)>,
+) {
+    for (entity, mut task) in &mut tasks {
+        if let Some((target_entity, new_mesh)) = future::block_on(future::poll_once(&mut task.0)) {
+            let mesh_handle = meshes.add(new_mesh);
+            
+            if let Ok(mut entity_cmds) = commands.get_entity(target_entity) {
+                entity_cmds.insert(Mesh3d(mesh_handle));
+                entity_cmds.insert(Renderable);
+            }
+
+            commands.entity(entity).remove::<GenMesh>();
+        }
+    }
 }

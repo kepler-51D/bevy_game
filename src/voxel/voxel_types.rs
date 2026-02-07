@@ -1,7 +1,11 @@
+use std::{sync::Arc};
+
 use bevy::{
     ecs::{component::Component},
     math::{IVec3, Vec3},
 };
+
+pub type BlockData = Arc<[[[BlockID;Chunk::CHUNKSIZE];Chunk::CHUNKSIZE];Chunk::CHUNKSIZE]>;
 
 #[repr(u16)]
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -18,13 +22,7 @@ pub struct Renderable;
 
 #[derive(Component)]
 pub struct Chunk {
-    pub data: [
-        [
-            [
-                BlockID;Chunk::CHUNKSIZE
-            ];Chunk::CHUNKSIZE
-        ];Chunk::CHUNKSIZE
-    ],
+    pub data: BlockData,
     pub pos: IVec3,
 }
 impl Chunk {
