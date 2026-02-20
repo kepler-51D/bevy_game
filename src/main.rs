@@ -1,5 +1,6 @@
 mod voxel;
 mod player;
+mod shader_manager;
 use std::sync::Arc;
 
 use crate::player::camera::{grab_mouse, spawn_player, update_player};
@@ -12,17 +13,15 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        
         .add_systems(Startup, setup)
         .add_systems(Update,grab_mouse)
         
         .add_systems(Startup, spawn_player)
         .add_systems(Update, update_player)
 
-        // .add_systems(Update, poll_mesh_tasks)
-        
         .insert_resource(ChunkManager { map: HashMap::default(), render_distance_hor: 2, render_distance_ver: 1})
-        // .add_systems(Update, process_chunks)
-        // .add_systems(Update,manage_chunks)
+        
         .add_systems(Update, (
             manage_chunks,
             process_chunks,

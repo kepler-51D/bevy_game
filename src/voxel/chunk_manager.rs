@@ -28,7 +28,6 @@ impl ChunkManager {
             pos.y.div_euclid(32), 
             pos.z.div_euclid(32)
         );
-        
         let local_pos = IVec3::new(
             pos.x.rem_euclid(32),
             pos.y.rem_euclid(32),
@@ -48,18 +47,13 @@ impl ChunkManager {
         materials: &mut ResMut<Assets<StandardMaterial>>,
     ) {
         let key = chunk.pos;
-        
-        // Store the data pointer in our manager for neighbors to find
         self.map.insert(key, Arc::clone(&chunk.data));
-
         let material_handle = materials.add(StandardMaterial {
             base_color: Color::WHITE,
             ..default()
         });
-
         commands.spawn((
             chunk,
-            // Multiply by 32.0 (Chunk size) to space them out in 3D space
             Transform::from_translation(key.as_vec3() * Chunk::CHUNKSIZE as f32 / 1.0),
             MeshMaterial3d(material_handle),
             NeedsMeshUpdate,
@@ -123,7 +117,6 @@ pub fn manage_chunks(
                     let index: IVec3 = IVec3::new(x,y,z);
                     let exists: bool = chunk_manager.map.contains_key(&index);
                     if !exists {
-                        // jobs.push(index);
                         let mut data = [[[BlockID::Air; 32]; 32]; 32];
                         let mut toggle: bool = true;
                         for x in data.iter_mut() {
@@ -138,18 +131,6 @@ pub fn manage_chunks(
                                 }
                             }
                         }
-                        // for x in 0..Chunk::CHUNKSIZE {
-                        //     for y in 0..Chunk::CHUNKSIZE {
-                        //         for z in 0..Chunk::CHUNKSIZE {
-                        //             data[x][y][z] = if toggle {
-                        //                 BlockID::Stone
-                        //             } else {
-                        //                 BlockID::Air
-                        //             };
-                        //             toggle = !toggle;
-                        //         }
-                        //     }
-                        // }
                         chunk_manager.add_chunk(&mut commands, Chunk {data:Arc::new(data), pos: index}, &mut materials);
                     }
                 }

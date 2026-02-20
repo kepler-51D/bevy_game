@@ -1,12 +1,76 @@
-use bevy::{asset::RenderAssetUsages, math::{IVec3, Vec3}, mesh::{Indices, Mesh, PrimitiveTopology}};
-use crate::voxel::{chunk_manager::ChunkManager, voxel_types::{BlockID, Chunk}};
+use std::array::from_fn;
+use strum_macros::EnumIter;
+use strum::IntoEnumIterator;
+use bevy::{
+    asset::{RenderAssetUsages},
+    math::{IVec3, Vec3},
+    mesh::{Indices, Mesh, PrimitiveTopology},
+};
+use crate::voxel::{
+    chunk_manager::ChunkManager,
+    voxel_shaders::{Quad, VoxelMaterial},
+    voxel_types::{BlockID, Chunk},
+};
 
-pub enum Orientation {
-    Up,Down,Left,Right,Front,Back
+#[repr(u8)]
+#[derive(Debug, EnumIter,Clone, Copy)]
+pub enum Side {
+    Top,
+    Bottom,
+    Left,
+    Right,
+    Front,
+    Back,
 }
+pub const DIRECTION: [IVec3; 6] = [
+    IVec3::Y,
+    IVec3::NEG_Y,
+    IVec3::X,
+    IVec3::NEG_X,
+    IVec3::Z,
+    IVec3::NEG_Z,
+];
 
-pub struct Quad {
-    pub orientation: Orientation,
+pub struct VoxelMesh {
+    pub offset: Vec3,
+    pub sides: [VoxelMaterial; 6],
+}
+impl VoxelMesh {
+    pub fn new() -> Self {
+        Self {
+            offset: Vec3::ZERO,
+            sides: from_fn(VoxelMaterial::arr_init),
+        }
+    }
+    pub fn get_mesh(&self, side: Side) -> Mesh {
+        Mesh::new(PrimitiveTopology::TriangleStrip,RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, Vec::from(Chunk::QUADS[side as usize]))
+    }
+    pub fn gen_mesh(chunk_index: IVec3, chunk_manager: &ChunkManager) -> Self {
+        let mut return_val = VoxelMesh::new();
+        for x in 0..Chunk::CHUNKSIZE {
+            for y in 0..Chunk::CHUNKSIZE {
+                for z in 0..Chunk::CHUNKSIZE {
+                    let index = IVec3::new(x as i32,y as i32,z as i32);
+                    let block_pos = index + chunk_index;
+                    if chunk_manager.get_block(block_pos) == BlockID::Air {continue;}
+                    
+                    for direction in Side::iter() {
+                        if chunk_manager.get_block(block_pos + DIRECTION[direction as usize]) != BlockID::Air {
+                            return_val.sides[direction as usize].push_quad(
+                                Quad::from(
+                                    Vec3::new(x as f32, y as f32, z as f32),
+                                    1,
+                                    1
+                                )
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        return_val
+    }
 }
 
 impl ChunkManager {

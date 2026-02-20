@@ -36,25 +36,20 @@ pub fn update_player(
         let const_transform = *transform;
         if keyboard_input.pressed(KeyCode::KeyW) {
             transform.translation -= const_transform.local_z().as_vec3();
-            // transform.translation -= -Vec3::Z;
         }
         if keyboard_input.pressed(KeyCode::KeyS) {
             transform.translation += const_transform.local_z().as_vec3();
-            // transform.translation -= Vec3::Z;
         }
         if keyboard_input.pressed(KeyCode::KeyA) {
             transform.translation -= const_transform.local_x().as_vec3();
-            // transform.translation -= -Vec3::X;
         }
         if keyboard_input.pressed(KeyCode::KeyD) {
             transform.translation += const_transform.local_x().as_vec3();
-            // transform.translation -= Vec3::X;
         }
         transform.rotation = transform.looking_at(Vec3::new(
             transform.translation.x,transform.translation.y,transform.translation.z-1.0
         ), Vec3::Y).rotation;
 
-        // transform.rotation = transform.looking_at(-transform.local_z().as_vec3(), Vec3::Y).rotation;
         transform.rotate_local_axis(Dir3::new(Vec3::Y).unwrap(), -camera_rotation.yaw/1000.0);
         transform.rotate_local_axis(Dir3::new(Vec3::X).unwrap(), -camera_rotation.pitch/1000.0);
         transform.rotation = transform.rotation.normalize();

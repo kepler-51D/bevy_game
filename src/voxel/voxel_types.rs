@@ -63,4 +63,12 @@ impl Chunk {
         Vec3 {x: 1.0, y: 0.0, z: 0.0},
         Vec3 {x: 0.0, y: 0.0, z: 0.0},
     ];
+    pub const QUADS: [[Vec3; 4]; 6] = [
+        Chunk::TOPQUAD,
+        Chunk::BOTTOMQUAD,
+        Chunk::LEFTQUAD,
+        Chunk::RIGHTQUAD,
+        Chunk::FRONTQUAD,
+        Chunk::BACKQUAD,
+    ];
 }
