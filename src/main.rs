@@ -1,11 +1,9 @@
 mod voxel;
 mod player;
-mod shader_manager;
-use std::sync::Arc;
+// mod fast_voxels;
 
 use crate::player::camera::{grab_mouse, spawn_player, update_player};
 use crate::voxel::chunk_manager::{ChunkManager, manage_chunks, poll_mesh_tasks, process_chunks};
-use crate::voxel::voxel_types::{BlockID, Chunk};
 
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
@@ -37,19 +35,14 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut chunk_manager: ResMut<ChunkManager>,
 ) {
-    let mut data = [[[BlockID::Air; 32]; 32]; 32];
-    let mut toggle: bool = true;
-    for x in data.iter_mut() {
-        for y in x.iter_mut() {
-            for z in y.iter_mut() {
-                *z = if toggle {
-                    BlockID::Stone
-                } else {
-                    BlockID::Air
-                };
-                toggle = !toggle;
-            }
-        }
-    }
-    chunk_manager.add_chunk(&mut commands, Chunk {data:Arc::new(data), pos: IVec3::ZERO}, &mut materials);
+    // let mut data = [[[BlockID::Air; 32]; 32]; 32];
+    // let mut toggle: bool = true;
+    // for x in 0..32 {
+    //     for y in 0..32 {
+    //         for z in 0..32 {
+    //             if y < 16;
+    //         }
+    //     }
+    // }
+    // chunk_manager.add_chunk(&mut commands, Chunk {data:Arc::new(data), pos: IVec3::ZERO}, &mut materials);
 }

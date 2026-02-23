@@ -122,12 +122,17 @@ pub fn manage_chunks(
                         for x in data.iter_mut() {
                             for y in x.iter_mut() {
                                 for z in y.iter_mut() {
-                                    *z = if toggle {
-                                        BlockID::Stone
+                                    if index.y <= 0 {
+                                        *z = BlockID::Stone;
                                     } else {
-                                        BlockID::Air
-                                    };
-                                    toggle = !toggle;
+                                        *z = BlockID::Air;
+                                    }
+                                    // *z = if toggle {
+                                    //     BlockID::Stone
+                                    // } else {
+                                    //     BlockID::Air
+                                    // };
+                                    // toggle = !toggle;
                                 }
                             }
                         }

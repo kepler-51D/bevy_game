@@ -43,8 +43,13 @@ impl VoxelMesh {
         }
     }
     pub fn get_mesh(&self, side: Side) -> Mesh {
-        Mesh::new(PrimitiveTopology::TriangleStrip,RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, Vec::from(Chunk::QUADS[side as usize]))
+        Mesh::new(
+            PrimitiveTopology::TriangleStrip,
+            RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD
+        ).with_inserted_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            Vec::from(Chunk::QUADS[side as usize])
+        )
     }
     pub fn gen_mesh(chunk_index: IVec3, chunk_manager: &ChunkManager) -> Self {
         let mut return_val = VoxelMesh::new();
