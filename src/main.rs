@@ -1,6 +1,6 @@
 mod voxel;
 mod player;
-// mod fast_voxels;
+mod fast_voxels;
 
 use crate::player::camera::{grab_mouse, spawn_player, update_player};
 use crate::voxel::chunk_manager::{ChunkManager, manage_chunks, poll_mesh_tasks, process_chunks};

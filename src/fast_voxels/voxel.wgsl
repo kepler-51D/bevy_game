@@ -30,9 +30,9 @@
         ),
 
         mat3x3<f32>( // left
-            0.0,  1.0, 0.0,
+             0.0, 1.0, 0.0,
             -1.0, 0.0, 0.0,
-            0.0,  0.0, 1.0,
+             0.0, 0.0, 1.0,
         ),
         mat3x3<f32>( // right
             0.0, -1.0, 0.0,
@@ -56,7 +56,10 @@
     @group(0) @binding(0) var<uniform> view: View;
     
     struct ChunkMeshInput { // gives chunk mesh data
-        chunk_pos: vec3<f32>,
+        chunk_pos_x: i32,
+        chunk_pos_y: i32,
+        chunk_pos_z: i32,
+
         orientation: u32,
         /*
         0: up
@@ -84,17 +87,6 @@
         // todo: bitpack
     }
 
-// instance data input
-    struct QuadInstanceInput { // gives offset of quad
-        // data per group of 4 threads
-        @location(1) offset: vec3<f32>,
-
-        /*
-        each axis number of the offset vector can only be between 0 and 31 (inclusive)
-        so can be represented with only 5 bits
-        */
-    }
-
 
 // vertex shader output
     struct VertexOutput { // gives the global position of the corner of the quad
@@ -105,15 +97,17 @@
 // shader code
     @vertex
     fn vs_main(
-        @builtin(vertex_index) v_idx: u32,
-        @builtin(instance_index) i_idx: u32
+        @builtin(vertex_index) v_idx: u32
     ) -> VertexOutput {
-        // 1. Get base vertex and rotate it
+        let chunk_pos = vec3<f32>(
+            f32(chunk_mesh_data.chunk_pos_x),
+            f32(chunk_mesh_data.chunk_pos_y),
+            f32(chunk_mesh_data.chunk_pos_z),
+        );
         let rotation = ROTATIONS[chunk_mesh_data.orientation];
-        let local_v = rotation * UP_QUAD[v_idx];
+        let local_v = rotation * UP_QUAD[v_idx & 3];
 
-        // 2. Add quad offset and chunk origin
-        let world_pos = local_v + quads[i_idx].offset + chunk_mesh_data.chunk_pos;
+        let world_pos = local_v + quads[v_idx / 4].offset + chunk_pos;
 
         var out: VertexOutput;
         out.clip_position = view.view_proj * vec4<f32>(world_pos, 1.0);
