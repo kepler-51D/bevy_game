@@ -1,5 +1,29 @@
 #import bevy_render::view::View
 
+// greedy quads
+    struct GreedyQuad {
+        data: u32
+    }
+    fn get_pos(data: GreedyQuad) -> vec3<u32> {
+        let pos = vec3<u32>(0,0,0);
+        pos.x = data.data & 31;
+        pos.y = (data.data >> 5) & 31;
+        pos.z = (data.data >> 10) & 31;
+        return pos;
+    }
+    fn get_size(data: GreedyQuad) -> vec2<u32> {
+        let pos = vec2<u32>(0,0);
+        pos.x = (data.data >> 10) & 31;
+        pos.y = (data.data >> 15) & 31;
+        return pos;
+    }
+    fn get_dir(data: GreedyQuad) -> u32 {
+        return (data.data >> 25) & 7;
+    }
+    fn get_block_type(data: GreedyQuad) -> u32 {
+        return (data.data >> 28) & 15;
+    }
+
 // constant data
     /* a quad should be rendered in the following order:
         0,1,2, = first triangle

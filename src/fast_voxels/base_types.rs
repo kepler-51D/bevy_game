@@ -2,14 +2,13 @@ use std::{array::from_fn, sync::Arc};
 
 use bevy::{
     ecs::component::Component,
-    math::{IVec3, UVec3},
+    math::{IVec3, UVec2, UVec3}, prelude::{Deref, DerefMut},
 };
-use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 pub type BlockData = Arc<[[[BlockID;CHUNKSIZE];CHUNKSIZE];CHUNKSIZE]>;
 
-#[repr(u16)]
+#[repr(u8)]
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum BlockID {
     Air,
@@ -24,7 +23,7 @@ pub struct Renderable;
 pub const CHUNKSIZE: usize = 32;
 
 /// represents any of the 6 cardinal directions
-#[repr(u32)]
+#[repr(u8)]
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Direction {
     Top,
@@ -46,7 +45,7 @@ pub const DIRECTION_VECS: [IVec3; 6] = [
 ];
 
 /// stores the position and blockdata for a chunk.
-#[derive(Component,Debug)]
+#[derive(Component)]
 pub struct Chunk {
     pub data: BlockData,
     pub pos: IVec3,
@@ -65,11 +64,66 @@ impl Quad {
         }
     }
 }
+/// lowest 5 bits are z, next 5 bits are y, next 5 bits are x
+/// (labelled X, Y and Z)
+/// 
+/// next 5 bits are for the width of the quad, next 5 bits are for height of quad
+/// (labelled W and H)
+/// 
+/// next 3 bits are direction of quad
+/// (Labelled D)
+/// 
+/// last 4 bits are blockID
+/// (labelled B)
+/// 
+/// BBBBDDDWWWWWHHHHHXXXXXYYYYYZZZZZ
+/// 
+/// (seperated for readability)
+/// 
+/// BBBB_DDD_WWWWW_HHHHH_XXXXX_YYYYY_ZZZZZ
+pub struct GreedyQuad {
+    pub data: u32
+}
+impl GreedyQuad {
+    pub fn set_pos(&mut self, pos: UVec3) {
+        let new: u32 = pos.x | (pos.y << 5) | (pos.z << 10);
+        self.data = (self.data & !31) | new;
+    }
+    pub fn get_pos(&self) -> UVec3 {
+        let mut pos: UVec3 = UVec3::ZERO;
+        pos.x = self.data & 31;
+        pos.y = (self.data >> 5) & 31;
+        pos.z = (self.data >> 10) & 31;
+        pos
+    }
+    pub fn set_size(&mut self, index: UVec2) {
+        let new: u32 = index.x | (index.y << 5);
+        self.data = self.data & !(1023 << 15) | (new << 15);
+    }
+    pub fn get_size(&self) -> UVec2 {
+        let mut pos: UVec2 = UVec2::ZERO;
+        pos.x = (self.data >> 10) & 31;
+        pos.y = (self.data >> 15) & 31;
+        pos
+    }
+    pub fn set_dir(&mut self, dir: Direction) {
+        self.data = self.data & !(7 << 25) | ((dir as u32) << 25);
+    }
+    pub fn get_dir(&self) -> Direction {
+        let val = ((self.data >> 25) & 7) as u8;
+        unsafe { std::mem::transmute(val) }
+    }
+    pub fn set_block_type(&mut self, block: BlockID) {
+        self.data = self.data & !(15 << 28) | ((block as u32) << 28);
+    }
+    pub fn get_block_type(&self) -> BlockID {
+        let val = ((self.data >> 28) & 15) as u8;
+        unsafe { std::mem::transmute(val) }
+    }
+}
 
 /// the voxel pipeline iterates through each VoxelMesh
 /// and sends each visible side to the gpu to be rendered
-/// 
-/// note: if the camera is outside the chunk, only 3 sides will have to be rendered.
 #[derive(Debug,Component,Clone)]
 pub struct VoxelMesh {
     pub chunk_pos: IVec3,
@@ -84,39 +138,7 @@ impl VoxelMesh {
             })
         }
     }
-    pub fn gen_mesh(chunk_pos: IVec3, data: [[[&Chunk; 3]; 3]; 3]) -> Self {
-        let mut return_val: VoxelMesh = VoxelMesh::new(chunk_pos);
-        for x in 0..CHUNKSIZE {
-            for y in 0..CHUNKSIZE {
-                for z in 0..CHUNKSIZE {
-                    let block_index = IVec3::new(
-                        x as i32,
-                        y as i32,
-                        z as i32,
-                    );
-                    let current_block = data[1][1][1].data[x][y][z];
-                    for i in Direction::iter() {
-                        if VoxelMesh::get_block(
-                            data,
-                            block_index + DIRECTION_VECS[i as usize])
-                            != BlockID::Air
-                        {
-                            return_val.quads[i as usize].push(
-                                Quad::new(UVec3::new(
-                                    x as u32,
-                                    y as u32,
-                                    z as u32,
-                                ))
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        return_val
-    }
-    fn get_block(data: [[[&Chunk; 3]; 3]; 3], mut block_index: IVec3) -> BlockID {
+    pub fn get_block(data: [[[&Chunk; 3]; 3]; 3], mut block_index: IVec3) -> BlockID {
         let mut chunk_index: UVec3 = UVec3::new(1,1,1);
         chunk_index.x -= (block_index.x < 0) as u32;
         chunk_index.y -= (block_index.y < 0) as u32;
@@ -132,8 +154,7 @@ impl VoxelMesh {
         data[chunk_index.x as usize]
             [chunk_index.y as usize]
             [chunk_index.z as usize]
-            .
-            data[block_index.x as usize]
+            .data[block_index.x as usize]
                 [block_index.y as usize]
                 [block_index.z as usize]
     }
