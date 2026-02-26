@@ -5,16 +5,20 @@
         data: u32
     }
     fn get_pos(data: GreedyQuad) -> vec3<u32> {
-        let pos = vec3<u32>(0,0,0);
-        pos.x = data.data & 31;
-        pos.y = (data.data >> 5) & 31;
-        pos.z = (data.data >> 10) & 31;
+        let pos = vec3<u32>(
+            data.data & 31,
+            (data.data >> 5) & 31,
+            (data.data >> 10) & 31
+        );
         return pos;
     }
     fn get_size(data: GreedyQuad) -> vec2<u32> {
-        let pos = vec2<u32>(0,0);
-        pos.x = (data.data >> 10) & 31;
-        pos.y = (data.data >> 15) & 31;
+        let pos = vec2<u32>(
+            (data.data >> 10) & 31,
+            (data.data >> 15) & 31
+        );
+        // pos.x = (data.data >> 10) & 31;
+        // pos.y = (data.data >> 15) & 31;
         return pos;
     }
     fn get_dir(data: GreedyQuad) -> u32 {
@@ -129,9 +133,9 @@
             f32(chunk_mesh_data.chunk_pos_z),
         );
         let rotation = ROTATIONS[chunk_mesh_data.orientation];
-        let local_v = rotation * UP_QUAD[v_idx & 3];
+        let local_v = rotation * UP_QUAD[indices[v_idx % 6]];
 
-        let world_pos = local_v + quads[v_idx / 4].offset + chunk_pos;
+        let world_pos = local_v + quads[v_idx / 6].offset + chunk_pos;
 
         var out: VertexOutput;
         out.clip_position = view.view_proj * vec4<f32>(world_pos, 1.0);

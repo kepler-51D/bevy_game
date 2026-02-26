@@ -1,26 +1,21 @@
 use std::{array::from_fn, sync::Arc};
+use std::simd::{u8x16, u8x64, u32x4};
 
 use bevy::{
     ecs::component::Component,
-    math::{IVec3, UVec2, UVec3}, prelude::{Deref, DerefMut},
+    math::{IVec3, UVec3},
 };
 use strum_macros::EnumIter;
 
+use crate::fast_voxels::blocks::BlockID;
+use crate::fast_voxels::mesh_gen::ChunkBitMask;
+
 pub type BlockData = Arc<[[[BlockID;CHUNKSIZE];CHUNKSIZE];CHUNKSIZE]>;
 
-#[repr(u8)]
-#[derive(PartialEq, Eq, Clone, Copy)]
-pub enum BlockID {
-    Air,
-    Stone,
-}
-#[derive(Component)]
-pub struct NeedsMeshUpdate;
-
-#[derive(Component)]
-pub struct Renderable;
-
+/// defines the chunk size, by the length of one side of the chunk
 pub const CHUNKSIZE: usize = 32;
+pub const FAST_CHUNKSIZE: usize = 30;
+
 
 /// represents any of the 6 cardinal directions
 #[repr(u8)]
@@ -50,6 +45,34 @@ pub struct Chunk {
     pub data: BlockData,
     pub pos: IVec3,
 }
+const LEN: usize = (FAST_CHUNKSIZE+2)*(FAST_CHUNKSIZE+2)*(FAST_CHUNKSIZE+2)/2;
+
+/// each u32x4 is one row
+pub type FastBlockData = [u8; LEN];
+/// same as the Chunk type but uses simd to make it faster
+#[derive(Debug, Clone, Copy, Component)]
+pub struct FastChunk { // presumes each block is 4 bits
+    pub pos: IVec3,
+    pub data: FastBlockData,
+}
+impl FastChunk {
+    pub fn return_mask(&self, block: BlockID) -> ChunkBitMask {
+        let ret: ChunkBitMask = ChunkBitMask {
+            data: [0; (FAST_CHUNKSIZE+2)*(FAST_CHUNKSIZE+2)],
+        };
+
+        for (index, block) in ret.data.iter().enumerate() {
+            
+        }
+        ret
+    }
+    pub fn new(pos: IVec3, data: FastBlockData) -> Self {
+        Self {
+            pos,
+            data,
+        }
+    }
+}
 
 /// contains the data for one quad
 /// each column of the pos vector is guaranteed to be between 0 and 31, inclusive
@@ -64,64 +87,6 @@ impl Quad {
         }
     }
 }
-/// lowest 5 bits are z, next 5 bits are y, next 5 bits are x
-/// (labelled X, Y and Z)
-/// 
-/// next 5 bits are for the width of the quad, next 5 bits are for height of quad
-/// (labelled W and H)
-/// 
-/// next 3 bits are direction of quad
-/// (Labelled D)
-/// 
-/// last 4 bits are blockID
-/// (labelled B)
-/// 
-/// BBBBDDDWWWWWHHHHHXXXXXYYYYYZZZZZ
-/// 
-/// (seperated for readability)
-/// 
-/// BBBB_DDD_WWWWW_HHHHH_XXXXX_YYYYY_ZZZZZ
-pub struct GreedyQuad {
-    pub data: u32
-}
-impl GreedyQuad {
-    pub fn set_pos(&mut self, pos: UVec3) {
-        let new: u32 = pos.x | (pos.y << 5) | (pos.z << 10);
-        self.data = (self.data & !31) | new;
-    }
-    pub fn get_pos(&self) -> UVec3 {
-        let mut pos: UVec3 = UVec3::ZERO;
-        pos.x = self.data & 31;
-        pos.y = (self.data >> 5) & 31;
-        pos.z = (self.data >> 10) & 31;
-        pos
-    }
-    pub fn set_size(&mut self, index: UVec2) {
-        let new: u32 = index.x | (index.y << 5);
-        self.data = self.data & !(1023 << 15) | (new << 15);
-    }
-    pub fn get_size(&self) -> UVec2 {
-        let mut pos: UVec2 = UVec2::ZERO;
-        pos.x = (self.data >> 10) & 31;
-        pos.y = (self.data >> 15) & 31;
-        pos
-    }
-    pub fn set_dir(&mut self, dir: Direction) {
-        self.data = self.data & !(7 << 25) | ((dir as u32) << 25);
-    }
-    pub fn get_dir(&self) -> Direction {
-        let val = ((self.data >> 25) & 7) as u8;
-        unsafe { std::mem::transmute(val) }
-    }
-    pub fn set_block_type(&mut self, block: BlockID) {
-        self.data = self.data & !(15 << 28) | ((block as u32) << 28);
-    }
-    pub fn get_block_type(&self) -> BlockID {
-        let val = ((self.data >> 28) & 15) as u8;
-        unsafe { std::mem::transmute(val) }
-    }
-}
-
 /// the voxel pipeline iterates through each VoxelMesh
 /// and sends each visible side to the gpu to be rendered
 #[derive(Debug,Component,Clone)]
@@ -143,6 +108,7 @@ impl VoxelMesh {
         chunk_index.x -= (block_index.x < 0) as u32;
         chunk_index.y -= (block_index.y < 0) as u32;
         chunk_index.z -= (block_index.z < 0) as u32;
+
 
         chunk_index.x += (block_index.x > 15) as u32;
         chunk_index.y += (block_index.y > 15) as u32;
