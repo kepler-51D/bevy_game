@@ -55,6 +55,6 @@ pub enum GPUBlockID {
     MoltenMetal = 11,
     Leaf = 12,
     Plant = 13, // the numbers are just so i can keep track for bitpacking stuff
-    TBD1 = 14,
-    TBD2 = 15,
+    _TBD1 = 14,
+    _TBD2 = 15,
 }

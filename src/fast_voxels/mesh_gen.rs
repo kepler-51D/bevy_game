@@ -32,20 +32,32 @@ impl ChunkBitMaskSlice {
 pub struct ChunkBitMask {
     pub data: [u32; (FAST_CHUNKSIZE+2)*(FAST_CHUNKSIZE+2)]
 }
+impl ChunkBitMask {
+    pub fn new() -> Self {
+        Self {
+            data: [0; (FAST_CHUNKSIZE+2)*(FAST_CHUNKSIZE+2)]
+        }
+    }
+}
 impl VoxelMesh {
     pub fn gen_greedy_mesh(chunk_pos: IVec3, data: &FastChunk) -> Self {
         let mut return_val = VoxelMesh::new(chunk_pos);
         for block in BlockID::iter() {
-
+            // get mask for each block
+            let mask: ChunkBitMask = ChunkBitMask::new();
+            for row in mask.data {
+                let mask = row ^ (row << 1);
+                
+            }
         }
         return_val
     }
     pub fn gen_mesh(chunk_pos: IVec3, data: [[[&Chunk; 3]; 3]; 3]) -> Self {
         let mut return_val: VoxelMesh = VoxelMesh::new(chunk_pos);
-        for x in 0..CHUNKSIZE {
-            for y in 0..CHUNKSIZE {
-                for z in 0..CHUNKSIZE {
-                    let current_block = data[1][1][1].data[x][y][z];
+        for x in 0..CHUNKSIZE as u32 {
+            for y in 0..CHUNKSIZE as u32 {
+                for z in 0..CHUNKSIZE as u32 {
+                    let current_block = data[1][1][1].data[x as usize][y as usize][z as usize];
                     if current_block == BlockID::Air {continue;}
                     let block_index = IVec3::new(
                         x as i32,

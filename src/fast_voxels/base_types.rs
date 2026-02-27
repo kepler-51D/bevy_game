@@ -56,13 +56,15 @@ pub struct FastChunk { // presumes each block is 4 bits
     pub data: FastBlockData,
 }
 impl FastChunk {
-    pub fn return_mask(&self, block: BlockID) -> ChunkBitMask {
+    pub fn get_mask(&self, block: BlockID) -> ChunkBitMask {
         let ret: ChunkBitMask = ChunkBitMask {
             data: [0; (FAST_CHUNKSIZE+2)*(FAST_CHUNKSIZE+2)],
         };
 
         for (index, block) in ret.data.iter().enumerate() {
-            
+            for i in 0..(FAST_CHUNKSIZE+2).midpoint(0) {
+                
+            }
         }
         ret
     }
@@ -105,14 +107,13 @@ impl VoxelMesh {
     }
     pub fn get_block(data: [[[&Chunk; 3]; 3]; 3], mut block_index: IVec3) -> BlockID {
         let mut chunk_index: UVec3 = UVec3::new(1,1,1);
-        chunk_index.x -= (block_index.x < 0) as u32;
-        chunk_index.y -= (block_index.y < 0) as u32;
-        chunk_index.z -= (block_index.z < 0) as u32;
+        chunk_index.x -= u32::from(block_index.x < 0);
+        chunk_index.y -= u32::from(block_index.y < 0);
+        chunk_index.z -= u32::from(block_index.z < 0);
 
-
-        chunk_index.x += (block_index.x > 15) as u32;
-        chunk_index.y += (block_index.y > 15) as u32;
-        chunk_index.z += (block_index.z > 15) as u32;
+        chunk_index.x += u32::from(block_index.x > 15);
+        chunk_index.y += u32::from(block_index.y > 15);
+        chunk_index.z += u32::from(block_index.z > 15);
 
         block_index.x &= 15;
         block_index.y &= 15;
